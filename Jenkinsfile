@@ -31,6 +31,15 @@ pipeline {
                 sh 'mvn package'
             }
         }
+        
+        stage('Deploy') {
+            steps {
+                echo 'Deploying Spring Boot application...'
+                sh '''
+                    JENKINS_NODE_COOKIE=dontKillMe nohup java -jar target/hello-cicd-1.0.0.jar --server.port=8081 > app.log 2>&1 &
+                '''
+            }
+        }
 
         stage('Success') {
             steps {
