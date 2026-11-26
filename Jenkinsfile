@@ -1,3 +1,4 @@
+```groovy
 pipeline {
     agent any
 
@@ -35,56 +36,38 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        stage('Docker Build') {
             steps {
-                echo 'Deploying Spring Boot application...'
+                echo 'Building Docker image...'
+                sh '''
+                    docker build -t hello-cicd:${BUILD_NUMBER} .
+                '''
+            }
+        }
+
+        stage('Docker Deploy') {
+            steps {
+                echo 'Deploying application using Docker...'
 
                 sh '''
-                    PID_FILE="/tmp/hello-cicd.pid"
+                    set -e
 
-                    # Stop the previous application
-                    if [ -f "$PID_FILE" ]; then
-                        OLD_PID=$(cat "$PID_FILE")
+                    # Stop and remove previous container
+                    docker rm -f hello-cicd-container || true
 
-                        if kill -0 "$OLD_PID" 2>/dev/null; then
-                            echo "Stopping old application (PID: $OLD_PID)..."
-                            kill "$OLD_PID"
-
-                            # Wait for graceful shutdown
-                            for i in $(seq 1 10); do
-                                if ! kill -0 "$OLD_PID" 2>/dev/null; then
-                                    break
-                                fi
-                                sleep 1
-                            done
-
-                            # Force stop if necessary
-                            if kill -0 "$OLD_PID" 2>/dev/null; then
-                                echo "Force stopping old application..."
-                                kill -9 "$OLD_PID"
-                            fi
-                        fi
-
-                        rm -f "$PID_FILE"
-                    fi
-
-                    # Start the new application
-                    echo "Starting new application..."
-
-                    JENKINS_NODE_COOKIE=dontKillMe nohup java -jar target/hello-cicd-1.0.0.jar --server.port=8081 > app.log 2>&1 &
-
-                    NEW_PID=$!
-                    echo "$NEW_PID" > "$PID_FILE"
-
-                    echo "New application PID: $NEW_PID"
+                    # Start new container
+                    docker run -d \
+                        --name hello-cicd-container \
+                        -p 9090:8080 \
+                        hello-cicd:${BUILD_NUMBER}
 
                     # Health check
                     echo "Checking application health..."
 
                     for i in $(seq 1 30); do
-                        if curl -s http://localhost:8081 > /dev/null; then
+                        if curl -fsS http://localhost:9090/health; then
+                            echo ""
                             echo "Application is running successfully!"
-                            curl http://localhost:8081
                             exit 0
                         fi
 
@@ -92,7 +75,9 @@ pipeline {
                     done
 
                     echo "Application failed to start!"
-                    cat app.log
+
+                    docker logs hello-cicd-container
+
                     exit 1
                 '''
             }
@@ -101,6 +86,7 @@ pipeline {
         stage('Success') {
             steps {
                 echo 'CI/CD Pipeline completed successfully!'
+                echo 'Docker deployment completed!'
             }
         }
     }
