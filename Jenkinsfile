@@ -1,3 +1,4 @@
+
 pipeline {
     agent any
 
@@ -6,10 +7,11 @@ pipeline {
     }
 
     environment {
-        PATH+DOCKER = "/Applications/Docker.app/Contents/Resources/bin"
+        DOCKER_PATH = "/Applications/Docker.app/Contents/Resources/bin"
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 echo 'Checking out the source code...'
@@ -41,8 +43,14 @@ pipeline {
         stage('Docker Build') {
             steps {
                 echo 'Building Docker image...'
+
                 sh '''
+                    export PATH="$DOCKER_PATH:$PATH"
+
+                    echo "Checking Docker installation..."
                     docker --version
+
+                    echo "Building Docker image..."
                     docker build -t hello-cicd:${BUILD_NUMBER} .
                 '''
             }
@@ -51,11 +59,17 @@ pipeline {
         stage('Docker Deploy') {
             steps {
                 echo 'Deploying application using Docker...'
-                sh '''
-                    set -e
 
+                sh '''
+                    export PATH="$DOCKER_PATH:$PATH"
+
+                    echo "Checking Docker..."
+                    docker --version
+
+                    echo "Stopping previous container if running..."
                     docker rm -f hello-cicd-container || true
 
+                    echo "Starting new container..."
                     docker run -d \
                         --name hello-cicd-container \
                         -p 9090:8080 \
@@ -63,12 +77,15 @@ pipeline {
 
                     echo "Checking application health..."
 
-                    for i in $(seq 1 30); do
-                        if curl -fsS http://localhost:9090/health; then
-                            echo ""
+                    for i in $(seq 1 30)
+                    do
+                        if curl -fsS http://localhost:9090/health
+                        then
                             echo "Application is running successfully!"
                             exit 0
                         fi
+
+                        echo "Waiting for application... attempt $i"
                         sleep 2
                     done
 
@@ -82,7 +99,7 @@ pipeline {
         stage('Success') {
             steps {
                 echo 'CI/CD Pipeline completed successfully!'
-                echo 'Docker deployment completed!'
+                echo 'Docker container is deployed on port 9090.'
             }
         }
     }
