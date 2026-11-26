@@ -12,45 +12,33 @@ pipeline {
 
     stages {
 
-        stage('Checkout') {
-            steps {
-                echo 'Checking out the source code...'
-                checkout scm
-            }
-        }
-
         stage('Build') {
             steps {
                 echo 'Building Spring Boot application...'
-                sh 'mvn clean compile'
+                sh 'mvn -B -ntp clean compile'
             }
         }
 
         stage('Test') {
             steps {
                 echo 'Running tests...'
-                sh 'mvn test'
+                sh 'mvn -B -ntp test'
             }
         }
 
         stage('Package') {
             steps {
                 echo 'Packaging application...'
-                sh 'mvn package'
+                sh 'mvn -B -ntp package'
             }
         }
 
         stage('Docker Build') {
             steps {
                 echo 'Building Docker image...'
-
                 sh '''
                     export PATH="$DOCKER_PATH:$PATH"
-
-                    echo "Checking Docker installation..."
                     docker --version
-
-                    echo "Building Docker image..."
                     docker build -t hello-cicd:${BUILD_NUMBER} .
                 '''
             }
@@ -59,17 +47,11 @@ pipeline {
         stage('Docker Deploy') {
             steps {
                 echo 'Deploying application using Docker...'
-
                 sh '''
                     export PATH="$DOCKER_PATH:$PATH"
 
-                    echo "Checking Docker..."
-                    docker --version
-
-                    echo "Stopping previous container if running..."
                     docker rm -f hello-cicd-container || true
 
-                    echo "Starting new container..."
                     docker run -d \
                         --name hello-cicd-container \
                         -p 9090:8080 \
@@ -99,7 +81,7 @@ pipeline {
         stage('Success') {
             steps {
                 echo 'CI/CD Pipeline completed successfully!'
-                echo 'Docker container is deployed on port 9090.'
+                echo 'Application URL: http://localhost:9090/'
             }
         }
     }

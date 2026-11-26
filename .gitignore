@@ -1,4 +1,25 @@
+# Maven build files
 target/
+*.jar
+*.war
+
+# Jenkins
+jenkins.war
+*.log
+*.pid
+
+# Mac system files
 .DS_Store
+
+# IDE files
 .idea/
-*.iml
+.vscode/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Temporary files
+*.tmp
+*.swp
