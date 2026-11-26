@@ -5,8 +5,11 @@ pipeline {
         maven 'Maven-3.9.10'
     }
 
-    stages {
+    environment {
+        PATH+DOCKER = "/Applications/Docker.app/Contents/Resources/bin"
+    }
 
+    stages {
         stage('Checkout') {
             steps {
                 echo 'Checking out the source code...'
@@ -39,6 +42,7 @@ pipeline {
             steps {
                 echo 'Building Docker image...'
                 sh '''
+                    docker --version
                     docker build -t hello-cicd:${BUILD_NUMBER} .
                 '''
             }
@@ -47,20 +51,16 @@ pipeline {
         stage('Docker Deploy') {
             steps {
                 echo 'Deploying application using Docker...'
-
                 sh '''
                     set -e
 
-                    # Stop and remove previous container
                     docker rm -f hello-cicd-container || true
 
-                    # Start new container
                     docker run -d \
                         --name hello-cicd-container \
                         -p 9090:8080 \
                         hello-cicd:${BUILD_NUMBER}
 
-                    # Health check
                     echo "Checking application health..."
 
                     for i in $(seq 1 30); do
@@ -69,14 +69,11 @@ pipeline {
                             echo "Application is running successfully!"
                             exit 0
                         fi
-
                         sleep 2
                     done
 
                     echo "Application failed to start!"
-
                     docker logs hello-cicd-container
-
                     exit 1
                 '''
             }
